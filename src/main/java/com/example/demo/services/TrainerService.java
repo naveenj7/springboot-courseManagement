@@ -11,6 +11,7 @@ import com.example.demo.dto.ResponseHandler;
 import com.example.demo.entity.Courses;
 import com.example.demo.entity.Student;
 import com.example.demo.entity.Trainer;
+import com.example.demo.exception.ResourceNotFoundException;
 import com.example.demo.repo.CoursesRepo;
 import com.example.demo.repo.TrainerRepo;
 
@@ -40,6 +41,45 @@ public class TrainerService {
 			return ResponseHandler.generateResponse("Successfully added data!", HttpStatus.CREATED, traine);
 		}
 
+	}
+
+	public ResponseEntity<Object> trainerDetails(int trainerId) {
+		Trainer trainer = trainerRepo.findById(trainerId)
+				.orElseThrow(() -> new ResourceNotFoundException("trainer Not Found!"));
+		
+		return ResponseHandler.generateResponse("Found the trainer", HttpStatus.OK, trainer);
+	}
+
+	public ResponseEntity<Object> updateTrainer(Trainer data) {
+		Trainer trainer = trainerRepo.findById(data.getTrainerId())
+				.orElseThrow(() -> new ResourceNotFoundException("Trainer Not Found!"));
+		
+		trainer.setTrainerName(data.getTrainerName());
+
+		trainer.getCourses().addAll(data.getCourses().stream().map(v -> {
+			Courses vv = coursesRepo.findById(v.getCourseId()).get();
+			vv.getTrainers().add(trainer);
+			return vv;
+		}).collect(Collectors.toList()));
+		Trainer updatedTrainer = trainerRepo.save(trainer);
+
+		if (updatedTrainer == null) {
+			return ResponseHandler.generateResponse("Updation Failed", HttpStatus.MULTI_STATUS, null);
+		} else {
+			return ResponseHandler.generateResponse("Updated Successfully", HttpStatus.OK, trainer);
+		}
+	}
+
+	public ResponseEntity<Object> deleteTrainer(int trainerId) {
+		Trainer trainer = trainerRepo.findById(trainerId)
+				.orElseThrow(() -> new ResourceNotFoundException("trainer Not Found!"));
+		
+		trainer.getCourses().forEach(course -> {
+			course.getStudents().remove(trainer);
+        });
+		
+		trainerRepo.deleteById(trainerId);
+		return ResponseHandler.generateResponse("Deleted Successfully", HttpStatus.OK, trainer);
 	}
 
 }
